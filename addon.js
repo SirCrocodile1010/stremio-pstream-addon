@@ -2,10 +2,10 @@ const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const axios = require('axios');
 
 const builder = new addonBuilder({
-  id: 'org.zstream.addon',
+  id: 'org.vidsrc.addon',
   version: '1.0.0',
-  name: 'ZStream',
-  description: 'Streams movies and TV shows from zstream.mov',
+  name: 'VidSrc',
+  description: 'Streams movies and TV shows from vidsrc.to',
   resources: ['stream'],
   types: ['movie', 'series'],
   idPrefixes: ['tt'],
@@ -14,21 +14,28 @@ const builder = new addonBuilder({
 
 builder.defineStreamHandler(async (args) => {
   try {
-    const imdbId = args.id.split(':')[0];
-    const embedUrl = `https://zstream.mov/e/${imdbId}`;
+    const parts = args.id.split(':');
+    const imdbId = parts[0];
+    const season = parts[1];
+    const episode = parts[2];
 
-    const { data: embedHtml } = await axios.get(embedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': 'https://zstream.mov'
-      },
-      timeout: 10000
-    });
+    let embedUrl;
+    if (season && episode) {
+      embedUrl = `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`;
+    } else {
+      embedUrl = `https://vidsrc.to/embed/movie/${imdbId}`;
+    }
 
-    // Log HTML so we can see the structure
-    console.log('HTML SAMPLE:', embedHtml.substring(0, 2000));
-
-    return { streams: [] };
+    // Return embed as a stream URL directly
+    return {
+      streams: [
+        {
+          externalUrl: embedUrl,
+          name: 'VidSrc',
+          description: 'Stream from vidsrc.to'
+        }
+      ]
+    };
 
   } catch (error) {
     console.error('Error:', error.message);
