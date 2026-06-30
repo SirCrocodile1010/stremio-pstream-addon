@@ -15,43 +15,60 @@ const builder = new addonBuilder({
 builder.defineStreamHandler(async (args) => {
   try {
     const imdbId = args.id.split(':')[0];
-    
-    // Search zstream.mov for the IMDB ID
-    const searchUrl = `https://zstream.mov/search?q=${imdbId}`;
-    const { data: searchHtml } = await axios.get(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
+    const embedUrl = `https://zstream.mov/e/${imdbId}`;
 
-    // Find embed URL with IMDB ID
-    const embedMatch = searchHtml.match(/href="(\/e\/[^"]+)"/);
-    if (!embedMatch) return { streams: [] };
-
-    const embedId = embedMatch[1].replace('/e/', '');
-    const embedUrl = `https://zstream.mov/e/${embedId}`;
-
-    // Get embed page
     const { data: embedHtml } = await axios.get(embedUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': embedUrl
-      }
+        'Referer': 'https://zstream.mov'
+      },
+      timeout: 10000
     });
 
-    // Extract stream URL
-    const streamMatch = embedHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)/);
-    if (!streamMatch) return { streams: [] };
+    console.log('Got embed page for', imdbId);
 
-    return {
-      streams: [
-        {
-          url: streamMatch[1],
+    // Try to find m3u8 stream
+    const m3u8Match = embedHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)/);
+    if (m3u8Match) {
+      return {
+        streams: [{
+          url: m3u8Match[1],
           name: 'ZStream',
           description: 'Stream from zstream.mov'
-        }
-      ]
-    };
+        }]
+      };
+    }
+
+    // Try to find mp4 stream
+    const mp4Match = embedHtml.match(/file:\s*["']([^"']+\.mp4[^"']*)/);
+    if (mp4Match) {
+      return {
+        streams: [{
+          url: mp4Match[1],
+          name: 'ZStream',
+          description: 'Stream from zstream.mov'
+        }]
+      };
+    }
+
+    // Try sources array
+    const sourcesMatch = embedHtml.match(/sources:\s*\[([^\]]+)\]/);
+    if (sourcesMatch) {
+      const urlMatch = sourcesMatch[1].match(/["']([^"']+(?:m3u8|mp4)[^"']*)/);
+      if (urlMatch) {
+        return {
+          streams: [{
+            url: urlMatch[1],
+            name: 'ZStream',
+            description: 'Stream from zstream.mov'
+          }]
+        };
+      }
+    }
+
+    console.log('No stream found for', imdbId);
+    return { streams: [] };
+
   } catch (error) {
     console.error('Error fetching stream:', error.message);
     return { streams: [] };
