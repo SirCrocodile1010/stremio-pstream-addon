@@ -21,7 +21,7 @@ builder.defineStreamHandler(async (args) => {
   }
 
   const pstreamId = args.id.replace('pstream://', '');
-  const pstreamUrl = `https://pstream.mov/e/${pstreamId}`;
+  const pstreamUrl = `https://zstream.mov/e/${pstreamId}`;
 
   try {
     // Fetch the pstream page
@@ -43,7 +43,7 @@ builder.defineStreamHandler(async (args) => {
 
     // Request stream data
     const streamData = await axios.post(
-      `https://pstream.mov/api/source/${pstreamId}`,
+      `https://zstream.mov/api/source/${pstreamId}`,
       new URLSearchParams({ id, token }),
       {
         headers: {
@@ -65,7 +65,7 @@ builder.defineStreamHandler(async (args) => {
         {
           url: streamUrl,
           name: 'PStream',
-          description: 'Stream from pstream.mov',
+          description: 'Stream from zstream.mov',
         },
       ],
     };
