@@ -1,73 +1,56 @@
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const axios = require('axios');
-const cheerio = require('cheerio');
 
-// Create addon builder with manifest
 const builder = new addonBuilder({
-  id: 'org.pstream.example',
+  id: 'org.zstream.addon',
   version: '1.0.0',
-  name: 'PStream',
-  description: 'Streams from pstream.mov',
+  name: 'ZStream',
+  description: 'Streams movies and TV shows from zstream.mov',
   resources: ['stream'],
   types: ['movie', 'series'],
-  idPrefixes: ['pstream://'],
+  idPrefixes: ['tt'],
   catalogs: []
 });
 
-// Define stream handler
 builder.defineStreamHandler(async (args) => {
-  if (!args.id.startsWith('pstream://')) {
-    return { streams: [] };
-  }
-
-  const pstreamId = args.id.replace('pstream://', '');
-  const pstreamUrl = `https://zstream.mov/e/${pstreamId}`;
-
   try {
-    // Fetch the pstream page
-    const { data: html } = await axios.get(pstreamUrl, {
+    const imdbId = args.id.split(':')[0];
+    
+    // Search zstream.mov for the IMDB ID
+    const searchUrl = `https://zstream.mov/search?q=${imdbId}`;
+    const { data: searchHtml } = await axios.get(searchUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': pstreamUrl,
-      },
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     });
 
-    // Parse HTML to extract form data
-    const $ = cheerio.load(html);
-    const id = $('input[name="id"]').val();
-    const token = $('input[name="token"]').val();
+    // Find embed URL with IMDB ID
+    const embedMatch = searchHtml.match(/href="(\/e\/[^"]+)"/);
+    if (!embedMatch) return { streams: [] };
 
-    if (!id || !token) {
-      throw new Error('Could not extract form data');
-    }
+    const embedId = embedMatch[1].replace('/e/', '');
+    const embedUrl = `https://zstream.mov/e/${embedId}`;
 
-    // Request stream data
-    const streamData = await axios.post(
-      `https://zstream.mov/api/source/${pstreamId}`,
-      new URLSearchParams({ id, token }),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Referer': pstreamUrl,
-          'X-Requested-With': 'XMLHttpRequest',
-        },
+    // Get embed page
+    const { data: embedHtml } = await axios.get(embedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': embedUrl
       }
-    );
+    });
 
-    // Extract the first stream URL
-    const streamUrl = streamData.data.data[0]?.file;
-    if (!streamUrl) {
-      throw new Error('No stream URL found');
-    }
+    // Extract stream URL
+    const streamMatch = embedHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)/);
+    if (!streamMatch) return { streams: [] };
 
     return {
       streams: [
         {
-          url: streamUrl,
-          name: 'PStream',
-          description: 'Stream from zstream.mov',
-        },
-      ],
+          url: streamMatch[1],
+          name: 'ZStream',
+          description: 'Stream from zstream.mov'
+        }
+      ]
     };
   } catch (error) {
     console.error('Error fetching stream:', error.message);
@@ -75,6 +58,5 @@ builder.defineStreamHandler(async (args) => {
   }
 });
 
-// Get the addon interface and serve it
 const addonInterface = builder.getInterface();
 serveHTTP(addonInterface, { port: 7000 });
