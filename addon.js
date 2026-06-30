@@ -25,52 +25,13 @@ builder.defineStreamHandler(async (args) => {
       timeout: 10000
     });
 
-    console.log('Got embed page for', imdbId);
+    // Log HTML so we can see the structure
+    console.log('HTML SAMPLE:', embedHtml.substring(0, 2000));
 
-    // Try to find m3u8 stream
-    const m3u8Match = embedHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)/);
-    if (m3u8Match) {
-      return {
-        streams: [{
-          url: m3u8Match[1],
-          name: 'ZStream',
-          description: 'Stream from zstream.mov'
-        }]
-      };
-    }
-
-    // Try to find mp4 stream
-    const mp4Match = embedHtml.match(/file:\s*["']([^"']+\.mp4[^"']*)/);
-    if (mp4Match) {
-      return {
-        streams: [{
-          url: mp4Match[1],
-          name: 'ZStream',
-          description: 'Stream from zstream.mov'
-        }]
-      };
-    }
-
-    // Try sources array
-    const sourcesMatch = embedHtml.match(/sources:\s*\[([^\]]+)\]/);
-    if (sourcesMatch) {
-      const urlMatch = sourcesMatch[1].match(/["']([^"']+(?:m3u8|mp4)[^"']*)/);
-      if (urlMatch) {
-        return {
-          streams: [{
-            url: urlMatch[1],
-            name: 'ZStream',
-            description: 'Stream from zstream.mov'
-          }]
-        };
-      }
-    }
-
-    console.log('No stream found for', imdbId);
     return { streams: [] };
 
   } catch (error) {
-    console.error('Error fetching stream:', error.message);
+    console.error('Error:', error.message);
     return { streams: [] };
   }
 });
